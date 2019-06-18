@@ -1,0 +1,15 @@
+JS_IN = LOAD 'jumpshot_de.search_feed_annotated_2_view_latest' USING org.apache.hive.hcatalog.pig.HCatLoader();
+JS_FI = FILTER JS_IN BY slice_start=='2018-01-01';
+JS_R = FOREACH JS_FI GENERATE device_id as user_id,REPLACE(REPLACE(REPLACE(age_group,'-','_'),'<','_'),'\\+','_') as age,gender as gender,search_engine as engine,(CASE WHEN source == 'e322' THEN 'avg' ELSE 'avast' END) AS source, 
+(CASE platform 
+WHEN 'PC' THEN 'PC'
+WHEN 'AN' THEN 'MOBILE' 
+ELSE 'NOT KNOWN' END) as platform,country_code as cc;
+
+
+JS_D = DISTINCT JS_R;
+JS_G7 = GROUP JS_D BY (cc,platform,engine,source,gender,age);
+JS_G8 = FOREACH JS_G7 GENERATE FLATTEN (group) AS (cc,platform,engine,source,age,gender), COUNT(JS_D.user_id) as cnt;
+
+STORE JS_G8 INTO '/user/krasimir_kostov/KPIs/SearchAnnotated1' 
+USING org.apache.pig.piggybank.storage.CSVExcelStorage(';', 'YES_MULTILINE', 'UNIX', 'WRITE_OUTPUT_HEADER');
